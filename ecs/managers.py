@@ -72,7 +72,7 @@ class EntityManager(object):
 
     def pairs_for_type(self, *component_types):
         """Return an iterator over ``(entity, component_instances)`` tuples for
-        all entities in the database possessing components of
+        all entities in the database possessing components for every type in
         ``component_types``. Return an empty iterator if there are no
         components of this type in the database. It should be used in a
         loop like this, where ``Renderable`` is a component type:
@@ -85,8 +85,8 @@ entity_manager.pairs_for_type(Renderable):
 
         .. code-block:: python
 
-            for entity, (renderable_component, position_component in \
-entity_manager.pairs_for_type(Renderable,Position):
+            for entity, (renderable_component, position_component) in \
+entity_manager.pairs_for_type(Renderable, Position):
                 pass # do something
 
         :param component_type: a type of created component
@@ -111,12 +111,12 @@ entity_manager.pairs_for_type(Renderable,Position):
             return six.iteritems({})
 
     def component_for_entity(self, entity, *component_types):
-        """Return the instances of ``types`` for the entity from the
+        """Return the instances of ``component_types`` for the entity from the
         database.
 
         :param entity: associated entity
         :type entity: :class:`ecs.models.Entity`
-        :param component_types: a number of types of created components
+        :param component_types: one or more types of created components
         :type component_types: :class:`type` which is :class:`Component`
             subclass
         :return: component instances as tuple or a single component instance

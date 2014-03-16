@@ -70,12 +70,12 @@ class EntityManager(object):
         except KeyError:
             pass
 
-    def pairs_for_type(self, component_type):
-        """Return an iterator over ``(entity, component_instance)`` tuples for
-        all entities in the database possessing a component of
-        ``component_type``. Return an empty iterator if there are no components
-        of this type in the database. It should be used in a loop like this,
-        where ``Renderable`` is a component type:
+    def pairs_for_type(self, *component_types):
+        """Return an iterator over ``(entity, component_instances)`` tuples for
+        all entities in the database possessing components of
+        ``component_types``. Return an empty iterator if there are no
+        components of this type in the database. It should be used in a
+        loop like this, where ``Renderable`` is a component type:
 
         .. code-block:: python
 
@@ -83,37 +83,64 @@ class EntityManager(object):
 entity_manager.pairs_for_type(Renderable):
                 pass # do something
 
+        .. code-block:: python
+
+            for entity, (renderable_component, position_component in \
+entity_manager.pairs_for_type(Renderable,Position):
+                pass # do something
+
         :param component_type: a type of created component
         :type component_type: :class:`type` which is :class:`Component`
             subclass
-        :return: iterator on ``(entity, component_instance)`` tuples
+        :return: iterator on ``(entity, component_instances)`` tuples
         :rtype: :class:`iter` on
             (:class:`ecs.models.Entity`, :class:`ecs.models.Component`)
         """
         try:
-            return six.iteritems(self._database[component_type])
+            if len(component_types) > 1:
+                # simplest way I can think of, may no be optimal
+                entities = set(self._database[component_types[0]].keys())
+                for component in component_types[1:]:
+                    entities.intersection_update(
+                        self._database[component].keys())
+                return ((e, tuple(self._database[component][e]
+                        for component in component_types)) for e in entities)
+            else:  # to retain compability with the current API
+                return six.iteritems(self._database[component_types[0]])
         except KeyError:
             return six.iteritems({})
 
-    def component_for_entity(self, entity, component_type):
-        """Return the instance of ``component_type`` for the entity from the
+    def component_for_entity(self, entity, *component_types):
+        """Return the instances of ``types`` for the entity from the
         database.
 
         :param entity: associated entity
         :type entity: :class:`ecs.models.Entity`
-        :param component_type: a type of created component
-        :type component_type: :class:`type` which is :class:`Component`
+        :param component_types: a number of types of created components
+        :type component_types: :class:`type` which is :class:`Component`
             subclass
-        :return: component instance
-        :rtype: :class:`ecs.models.Component`
-        :raises: :exc:`NonexistentComponentTypeForEntity` when
-            ``component_type`` does not exist on the given entity
+        :return: component instances as tuple or a single component instance
+            if only one type is given
+        :rtype: :class:`tuple` of :class:`ecs.models.Component`
+        :raises: :exc:`NonexistentComponentTypeForEntity` for the first
+            type from ``component_types`` that does not exist on the given
+            entity
         """
         try:
-            return self._database[component_type][entity]
+            if len(component_types) > 1:
+                return tuple(self._database[component][entity]
+                             for component in component_types)
+            else:  # to retain compability with the current API
+                return self._database[component_types[0]][entity]
         except KeyError:
-            raise NonexistentComponentTypeForEntity(
-                entity, component_type)
+            for component in component_types:
+                # since we iterate over types in a generator expression
+                # we have to do it here again to find the component that
+                # caused the KeyError
+                if not component in self._database or \
+                   not entity in self._database[component]:
+                    raise NonexistentComponentTypeForEntity(
+                        entity, component)
 
     def remove_entity(self, entity):
         """Remove all components from the database that are associated with

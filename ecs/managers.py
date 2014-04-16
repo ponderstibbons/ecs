@@ -115,6 +115,80 @@ entity_manager.pairs_for_type(Renderable):
             raise NonexistentComponentTypeForEntity(
                 entity, component_type)
 
+    def pairs_for_types(self, *component_types):
+        """Multi component analog to
+        :meth:`pairs_for_type`, works
+        the same but accepts more than one component type.
+        Return an iterator over ``(entity, component_instances)`` tuples for
+        all entities in the database possessing components for every type in
+        ``component_types``. Return an empty iterator if there are no
+        components of this type in the database. Component instances are always
+        returned as tuples, even if only one component type was given.
+        It should be used in a loop like this, where ``Renderable`` is a 
+        component type:
+
+        .. code-block:: python
+
+            for entity, (renderable_component,) in \
+entity_manager.pairs_for_type(Renderable):
+                pass # do something
+
+        .. code-block:: python
+
+            for entity, (renderable_component, position_component) in \
+entity_manager.pairs_for_type(Renderable, Position):
+                pass # do something
+
+        :param component_type: a type of created component
+        :type component_type: :class:`type` which is :class:`Component`
+            subclass
+        :return: iterator on ``(entity, component_instances)`` tuples
+        :rtype: :class:`iter` on
+            (:class:`ecs.models.Entity`, :class:`tuple` of :class:`ecs.models.Component`)
+        """
+        try:
+            # simplest way I can think of, may not be optimal
+            entities = set(self._database[component_types[0]].keys())
+            for component in component_types[1:]:
+                entities.intersection_update(
+                    self._database[component].keys())
+            return ((e, tuple(self._database[component][e]
+                    for component in component_types)) 
+                    for e in entities)
+        except KeyError:
+            return six.iteritems({})
+
+    def components_for_entity(self, entity, *component_types):
+        """Multi component analog to
+        :meth:`component_for_entity`, works
+        the same but accepts more than one component type.
+        Return the instances of ``component_types`` for the entity in a tuple 
+        from the database.
+
+        :param entity: associated entity
+        :type entity: :class:`ecs.models.Entity`
+        :param component_types: one or more types of created components
+        :type component_types: :class:`type` which is :class:`Component`
+            subclass
+        :return: component instances as tuple
+        :rtype: :class:`tuple` of :class:`ecs.models.Component`
+        :raises: :exc:`NonexistentComponentTypeForEntity` for the first
+            type from ``component_types`` that does not exist on the given
+            entity
+        """
+        try:
+            return tuple(self._database[component][entity]
+                            for component in component_types)
+        except KeyError:
+            for component in component_types:
+                # since we iterate over types in a generator expression
+                # we have to do it here again to find the component that
+                # caused the KeyError
+                if not component in self._database or \
+                   not entity in self._database[component]:
+                    raise NonexistentComponentTypeForEntity(
+                        entity, component) from None
+
     def remove_entity(self, entity):
         """Remove all components from the database that are associated with
         the entity, with the side-effect that the entity is also no longer

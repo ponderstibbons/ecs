@@ -61,6 +61,17 @@ class TestEntityManager(object):
                 self, manager, entities, component_types):
             assert list(manager.pairs_for_type(component_types[2])) == []
 
+    class TestPairsForTypes(object):
+        def test_existing_component_type(
+                self, manager, entities, components, component_types):
+            assert list(manager.pairs_for_types(component_types[0],
+                        component_types[4])) == [
+                (entities[3], (components[0], components[4]))]
+        def test_nonexistent_component_type(
+                self, manager, entities, component_types):
+            assert list(manager.pairs_for_types(component_types[0],
+                        component_types[3])) == []
+
     class TestRemoveComponent(object):
         def test_remove_some_of_a_component(
                 self, manager, entities, components, component_types):
@@ -108,6 +119,24 @@ class TestEntityManager(object):
                 self, manager, entities, components, component_types):
             with raises(NonexistentComponentTypeForEntity) as exc_info:
                 manager.component_for_entity(entities[3], component_types[1])
+            assert_exc_info_msg(
+                exc_info,
+                "Nonexistent component type: "
+                "`Component1' for entity: `Entity(3)'")
+
+    class TestComponentsForEntityType(object):
+        def test_normal_usage(
+                self, manager, entities, components, component_types):
+            assert manager.components_for_entity(
+                entities[3], component_types[4], component_types[0]) == \
+                (components[4], components[0])
+
+        def test_raises_error_on_nonexistent_component_type(
+                self, manager, entities, components, component_types):
+
+            with raises(NonexistentComponentTypeForEntity) as exc_info:
+                manager.components_for_entity(entities[3], component_types[0],
+                                             component_types[1])
             assert_exc_info_msg(
                 exc_info,
                 "Nonexistent component type: "

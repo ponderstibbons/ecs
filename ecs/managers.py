@@ -1,6 +1,7 @@
 """Entity and System Managers."""
 
 import six
+from functools import reduce
 
 from ecs.exceptions import (
     NonexistentComponentTypeForEntity, DuplicateSystemTypeError,
@@ -147,13 +148,11 @@ entity_manager.pairs_for_type(Renderable, Position):
             (:class:`ecs.models.Entity`, :class:`tuple` of :class:`ecs.models.Component`)
         """
         try:
-            # simplest way I can think of, may not be optimal
-            entities = set(self._database[component_types[0]].keys())
-            for component in component_types[1:]:
-                entities.intersection_update(
-                    self._database[component].keys())
+            entities = reduce(lambda a,b: a.intersection(b),
+                            map(lambda x: self._database[x].keys(), component_types[1:]),
+                            set(self._database[component_types[0]].keys()))
             return ((e, tuple(self._database[component][e]
-                    for component in component_types)) 
+                              for component in component_types)) 
                     for e in entities)
         except KeyError:
             return six.iteritems({})

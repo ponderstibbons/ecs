@@ -107,8 +107,8 @@ entity_manager.pairs_for_type(Renderable):
             return six.iteritems({})
 
     def pairs_for_types(self, *component_types):
-        """Return an iterator over ``(entity, [component_instances])`` tuples
-        for all entities in the database possessing components of all of
+        """Return an iterator over ``(entity, (component_instances...))``
+        tuples for all entities in the database possessing components of all of
         ``component_types``. Return an empty iterator if there are no entities
         containing these types of components in the database. It should be
         used in a loop like this, where ``Renderable`` and ``PlayerControl``

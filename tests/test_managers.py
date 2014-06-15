@@ -22,7 +22,7 @@ class TestEntityManager(object):
 
     @fixture
     def entities(self, manager):
-        return [manager.create_entity() for _ in range(5)]
+        return [manager.create_entity() for _ in range(6)]
 
     @fixture
     def component_types(self):
@@ -41,6 +41,8 @@ class TestEntityManager(object):
         manager.add_component(entities[3], components[4])
         manager.add_component(entities[4], components[3])
         manager.add_component(entities[1], components[5])
+        manager.add_component(entities[5], components[0])
+        manager.add_component(entities[5], components[4])
 
     def test_create_new_entities(self, manager):
         # We should not test the implementation of the "hash", but just ensure
@@ -55,11 +57,21 @@ class TestEntityManager(object):
             assert list(manager.pairs_for_type(component_types[0])) == [
                 (entities[0], components[0]),
                 (entities[1], components[5]),
-                (entities[3], components[0])]
+                (entities[3], components[0]),
+                (entities[5], components[0])]
 
         def test_nonexistent_component_type(
                 self, manager, entities, component_types):
             assert list(manager.pairs_for_type(component_types[2])) == []
+
+    class TestPairsForTypes(object):
+        def test_existing_component_types(
+                self, manager, entities, components, component_types):
+            retval = list(manager.pairs_for_types(component_types[0],
+                                                  component_types[4]))
+            assert retval == [
+                (entities[3], (components[0], components[4])),
+                (entities[5], (components[0], components[4]))]
 
     class TestRemoveComponent(object):
         def test_remove_some_of_a_component(
@@ -69,23 +81,27 @@ class TestEntityManager(object):
                 component_types[0]: {
                     entities[0]: components[0],
                     entities[1]: components[5],
+                    entities[5]: components[0],
                 },
                 component_types[3]: {
                     entities[4]: components[3],
                 },
                 component_types[4]: {
                     entities[3]: components[4],
+                    entities[5]: components[4]
                 }
             }
 
         def test_remove_all_of_a_component(
                 self, manager, entities, components, component_types):
             manager.remove_component(entities[3], component_types[4])
+            manager.remove_component(entities[5], component_types[4])
             assert manager.database == {
                 component_types[0]: {
                     entities[0]: components[0],
                     entities[3]: components[0],
                     entities[1]: components[5],
+                    entities[5]: components[0]
                 },
                 component_types[3]: {
                     entities[4]: components[3],
@@ -118,8 +134,11 @@ class TestEntityManager(object):
         manager.remove_entity(entities[3])
         assert manager.database == {
             component_types[0]: {
-                entities[0]: components[0], entities[1]: components[5]},
+                entities[0]: components[0],
+                entities[1]: components[5],
+                entities[5]: components[0]},
             component_types[3]: {entities[4]: components[3]},
+            component_types[4]: {entities[5]: components[4]},
         }
 
 

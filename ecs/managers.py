@@ -12,7 +12,10 @@ class EntityManager(object):
     """Provide database-like access to components based on an entity key."""
     def __init__(self):
         self._database = {}
+        self._entity_mask = {}
         self._next_guid = 0
+        self._next_component_bit = 1
+        self._component_bits = {}
 
     @property
     def database(self):
@@ -26,14 +29,15 @@ class EntityManager(object):
 
     def create_entity(self):
         """Return a new entity instance with the current lowest GUID value.
-        Does not store a reference to it, and does not make any entries in the
-        database referencing it.
+        Initializes the entity's component lookup bitmask to 0. Does not
+        make entries in the component database referencing it.
 
         :return: the new entity
         :rtype: :class:`ecs.models.Entity`
         """
         entity = Entity(self._next_guid)
         self._next_guid += 1
+        self._entity_mask[entity] = 0
         return entity
 
     def add_component(self, entity, component_instance):
@@ -48,7 +52,12 @@ class EntityManager(object):
         component_type = type(component_instance)
         if component_type not in self._database:
             self._database[component_type] = {}
+        if component_type not in self._component_bits:
+            self._component_bits[component_type] = self._next_component_bit
+            self._next_component_bit <<= 1
 
+        self._entity_mask[entity] = self._entity_mask[entity] | \
+            self._component_bits[component_type]
         self._database[component_type][entity] = component_instance
 
     def remove_component(self, entity, component_type):
@@ -65,8 +74,10 @@ class EntityManager(object):
         """
         try:
             del self._database[component_type][entity]
-            if self._database[component_type] == {}:
+            if not self._database[component_type]:
                 del self._database[component_type]
+            self._entity_mask[entity] = self._entity_mask[entity] & \
+                (~self._component_bits[component_type])
         except KeyError:
             pass
 
@@ -94,6 +105,54 @@ entity_manager.pairs_for_type(Renderable):
             return six.iteritems(self._database[component_type])
         except KeyError:
             return six.iteritems({})
+
+    def pairs_for_types(self, *component_types):
+        """Return an iterator over ``(entity, [component_instances])`` tuples
+        for all entities in the database possessing components of all of
+        ``component_types``. Return an empty iterator if there are no entities
+        containing these types of components in the database. It should be
+        used in a loop like this, where ``Renderable`` and ``PlayerControl``
+        are component types:
+
+        .. code-block:: python
+
+            for entity, (renderable_component, control_component) in \
+entity_manager.pairs_for_types(Renderable, PlayerControl):
+                pass # do something
+
+        :param component_types: types of components required in an entity
+        :type component_types: :class:`type` which is :class:`Component`
+            subclass
+        :return: iterator on ``(entity, (component_instance...))`` tuples
+        :rtype: :class:`iter` on
+            (:class:`ecs.models.Entity`,
+            :tuple:(:class:`ecs.models.Component`,...))
+        """
+        try:
+            mask = self._build_mask(*component_types)
+            shortest = min((self._database[ct] for ct in component_types),
+                           key=len)
+            return ((entity, tuple(self._database[ct][entity]
+                                   for ct in component_types))
+                    for entity in shortest
+                    if self._entity_mask[entity] & mask == mask)
+        except KeyError:
+            return []
+
+    def _build_mask(self, *component_types):
+        """Build a componennt bitmask which represents entities containing
+        all the ``component_types``.
+
+        :param component_types: component types to be included in the bitmas
+        :type component_types: :class:`type` which is :class:`Component`
+            subclass
+        :return: integer bitmask
+        :rtype: int
+        """
+        mask = 0
+        for component_type in component_types:
+            mask = mask | self._component_bits[component_type]
+        return mask
 
     def component_for_entity(self, entity, component_type):
         """Return the instance of ``component_type`` for the entity from the
@@ -131,10 +190,14 @@ entity_manager.pairs_for_type(Renderable):
         for comp_type in list(self._database.keys()):
             try:
                 del self._database[comp_type][entity]
-                if self._database[comp_type] == {}:
+                if not self._database[comp_type]:
                     del self._database[comp_type]
             except KeyError:
                 pass
+        try:
+            del self._entity_mask[entity]
+        except KeyError:
+            pass
 
 
 class SystemManager(object):

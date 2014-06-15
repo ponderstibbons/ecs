@@ -129,6 +129,24 @@ class TestEntityManager(object):
                 "Nonexistent component type: "
                 "`Component1' for entity: `Entity(3)'")
 
+    class TestComponentsForEntityType(object):
+            def test_normal_usage(
+                    self, manager, entities, components, component_types):
+                assert manager.components_for_entity(
+                    entities[3], component_types[4], component_types[0]) == \
+                    (components[4], components[0])
+
+            def test_raises_error_on_nonexistent_component_type(
+                    self, manager, entities, components, component_types):
+
+                with raises(NonexistentComponentTypeForEntity) as exc_info:
+                    manager.components_for_entity(entities[3], component_types[0],
+                                                component_types[1])
+                assert_exc_info_msg(
+                    exc_info,
+                    "Nonexistent component type: "
+                    "`Component1' for entity: `Entity(3)'")
+
     def test_remove_entity(
             self, manager, entities, components, component_types):
         manager.remove_entity(entities[3])
@@ -140,7 +158,6 @@ class TestEntityManager(object):
             component_types[3]: {entities[4]: components[3]},
             component_types[4]: {entities[5]: components[4]},
         }
-
 
 class TestSystemManager(object):
     @fixture

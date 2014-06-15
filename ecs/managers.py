@@ -151,7 +151,7 @@ entity_manager.pairs_for_types(Renderable, PlayerControl):
         """
         mask = 0
         for component_type in component_types:
-            mask = mask | self._component_bits[component_type]
+            mask |= self._component_bits[component_type]
         return mask
 
     def component_for_entity(self, entity, component_type):
@@ -173,6 +173,37 @@ entity_manager.pairs_for_types(Renderable, PlayerControl):
         except KeyError:
             raise NonexistentComponentTypeForEntity(
                 entity, component_type)
+
+    def components_for_entity(self, entity, *component_types):
+        """Multi component analog to
+        :meth:`component_for_entity`, works
+        the same but accepts more than one component type.
+        Return the instances of ``component_types`` for the entity in a tuple
+        from the database.
+
+        :param entity: associated entity
+        :type entity: :class:`ecs.models.Entity`
+        :param component_types: one or more types of created components
+        :type component_types: :class:`type` which is :class:`Component`
+            subclass
+        :return: component instances as tuple
+        :rtype: :class:`tuple` of :class:`ecs.models.Component`
+        :raises: :exc:`NonexistentComponentTypeForEntity` for the first
+            type from ``component_types`` that does not exist on the given
+            entity
+        """
+        try:
+            return tuple(self._database[component][entity]
+                            for component in component_types)
+        except KeyError:
+            for component in component_types:
+                # since we iterate over types in a generator expression
+                # we have to do it here again to find the component that
+                # caused the KeyError
+                if not component in self._database or \
+                   not entity in self._database[component]:
+                    raise NonexistentComponentTypeForEntity(
+                        entity, component) from None
 
     def remove_entity(self, entity):
         """Remove all components from the database that are associated with
